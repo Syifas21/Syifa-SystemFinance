@@ -1,0 +1,16 @@
+// src/utils/prisma.ts
+import { PrismaClient } from '@prisma/client';
+
+// Singleton pattern for Prisma Client
+// Prevents multiple instances which can cause connection issues
+const globalForPrisma = global as unknown as { prisma: PrismaClient };
+
+export const prisma = globalForPrisma.prisma || new PrismaClient({
+  log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+});
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma;
+}
+
+export default prisma;

@@ -1,0 +1,72 @@
+# ============================================
+# PROJECT FINANCE - Docker Compose
+# Production-Ready Setup
+# ============================================
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: finance-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-finance2026}
+      POSTGRES_DB: Finance
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ./services/finance-service
+      dockerfile: Dockerfile
+    container_name: finance-backend
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-finance2026}@postgres:5432/Finance?schema=public
+      JWT_SECRET: ${JWT_SECRET:-ProjectFinance2026SecureKey}
+      PORT: 3001
+      NODE_ENV: production
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./services/finance-service/uploads:/app/uploads
+
+  # Frontend Application
+  frontend:
+    build:
+      context: ./frontend/apps/finance-frontend
+      dockerfile: Dockerfile
+    container_name: finance-frontend
+    restart: always
+    environment:
+      VITE_API_BASE_URL: http://localhost:3001
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  default:
+    name: finance-network

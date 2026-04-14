@@ -1,0 +1,18 @@
+{
+  "name": "finance-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Finance ERP Workspace",
+  "scripts": {
+    "dev:backend": "cd services/finance-service && npm run dev",
+    "dev:frontend": "cd frontend/apps/finance-frontend && npm run dev",
+    "dev:finance": "npm run dev:backend",
+    "dev:all": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "seed": "cd services/finance-service && npx ts-node prisma/seed.ts",
+    "prisma:push": "cd services/finance-service && npx prisma db push",
+    "prisma:generate": "cd services/finance-service && npx prisma generate"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

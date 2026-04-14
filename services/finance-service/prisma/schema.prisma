@@ -1,0 +1,360 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ChartOfAccounts {
+  id              Int               @id @default(autoincrement())
+  account_code    String            @unique
+  account_name    String
+  account_type    AccountType
+  description     String?
+  created_at      DateTime          @default(now())
+  updated_at      DateTime
+  journal_entries journal_entries[] @relation("AccountEntries")
+}
+
+model discount_policies {
+  id                 String   @id
+  role               String   @unique @db.VarChar(50)
+  authority_limit    Decimal  @db.Decimal(5, 2)
+  max_discount_limit Decimal  @db.Decimal(5, 2)
+  description        String?
+  created_at         DateTime @default(now())
+  updated_at         DateTime @default(now())
+}
+
+model documents {
+  id            String       @id
+  document_type DocumentType
+  file_name     String
+  original_name String
+  file_path     String
+  file_size     Int
+  mime_type     String
+  entity_type   String?
+  entity_id     String?
+  project_id    String?
+  customer_id   String?
+  invoice_id    String?
+  quotation_id  String?
+  uploaded_by   String
+  upload_date   DateTime     @default(now())
+  description   String?
+  metadata      Json?
+  created_at    DateTime     @default(now())
+  updated_at    DateTime
+
+  @@index([customer_id])
+  @@index([document_type])
+  @@index([entity_type, entity_id])
+  @@index([project_id])
+  @@index([upload_date])
+}
+
+model exchange_rates {
+  id             Int      @id @default(autoincrement())
+  currency_from  String   @db.VarChar(3)
+  currency_to    String   @db.VarChar(3)
+  rate           Decimal  @db.Decimal(18, 6)
+  effective_date DateTime @db.Date
+  is_active      Boolean  @default(true)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @default(now())
+
+  @@unique([currency_from, currency_to, effective_date])
+}
+
+model invoice_milestones {
+  id              String                 @id
+  project_id      String?
+  milestone_type  MilestoneType
+  percentage      Decimal                @db.Decimal(5, 2)
+  triggered_at    DateTime?
+  invoice_id      String?
+  status          InvoiceMilestoneStatus @default(Pending)
+  created_at      DateTime               @default(now())
+  updated_at      DateTime
+  actual_date     DateTime?              @db.Date
+  expected_amount Decimal                @default(0) @db.Decimal(15, 2)
+  expected_date   DateTime?              @db.Date
+  milestone_name  String?
+  notes           String?
+  invoices        invoices?              @relation("InvoiceMilestones", fields: [invoice_id], references: [id], onDelete: Cascade)
+
+  @@index([invoice_id])
+  @@index([milestone_type])
+  @@index([project_id])
+  @@index([status])
+}
+
+model invoices {
+  id                 String               @id
+  invoice_number     String               @unique
+  invoice_date       DateTime             @db.Date
+  due_date           DateTime             @db.Date
+  customer_id        String?
+  customer_name      String
+  customer_address   String?
+  customer_phone     String?
+  customer_email     String?
+  subtotal           Decimal              @db.Decimal(15, 2)
+  tax_amount         Decimal              @default(0) @db.Decimal(15, 2)
+  discount_amount    Decimal              @default(0) @db.Decimal(15, 2)
+  total_amount       Decimal              @db.Decimal(15, 2)
+  currency           String               @default("IDR") @db.VarChar(3)
+  status             InvoiceStatus        @default(DRAFT)
+  notes              String?
+  payment_terms      String?
+  created_by         String?
+  updated_by         String?
+  created_at         DateTime             @default(now())
+  updated_at         DateTime
+  invoice_milestones invoice_milestones[] @relation("InvoiceMilestones")
+}
+
+model journal_entries {
+  id               BigInt          @id @default(autoincrement())
+  transaction_date DateTime        @db.Date
+  description      String?
+  account_id       Int
+  debit            Decimal?        @db.Decimal(15, 2)
+  credit           Decimal?        @db.Decimal(15, 2)
+  reference_id     String?         @db.Uuid
+  reference_type   String?         @db.VarChar(50)
+  created_by       String?
+  created_at       DateTime        @default(now())
+  updated_at       DateTime        @default(now())
+  ChartOfAccounts  ChartOfAccounts @relation("AccountEntries", fields: [account_id], references: [id], onDelete: Cascade)
+
+  @@index([account_id])
+  @@index([reference_id])
+  @@index([transaction_date])
+}
+
+model margin_policies {
+  id                       String                     @id
+  sbu                      String                     @db.VarChar(50)
+  category                 String                     @db.VarChar(100)
+  system                   String?                    @db.VarChar(100)
+  sub_system               String?                    @db.VarChar(100)
+  component                String?                    @db.VarChar(100)
+  min_gross_margin         Decimal                    @db.Decimal(5, 4)
+  max_gross_margin         Decimal                    @db.Decimal(5, 4)
+  default_markup           Decimal?                   @db.Decimal(6, 4)
+  is_active                Boolean                    @default(true)
+  notes                    String?
+  valid_from               DateTime                   @default(dbgenerated("'2025-01-01'::date")) @db.Date
+  valid_to                 DateTime                   @default(dbgenerated("'2026-12-31'::date")) @db.Date
+  created_by               String?                    @db.VarChar(100)
+  updated_by               String?                    @db.VarChar(100)
+  created_at               DateTime                   @default(now())
+  updated_at               DateTime                   @default(now())
+  margin_policy_violations margin_policy_violations[] @relation("PolicyViolations")
+
+  @@unique([sbu, category, system, sub_system, component, valid_from])
+  @@index([is_active])
+  @@index([sbu, category, system, sub_system, component])
+  @@index([valid_from, valid_to])
+}
+
+model margin_policy_violations {
+  id                 String           @id
+  policy_id          String?
+  estimation_id      String?
+  boq_item_id        String?
+  violated_at        DateTime         @default(now())
+  sbu                String           @db.VarChar(50)
+  category           String           @db.VarChar(100)
+  system             String?          @db.VarChar(100)
+  sub_system         String?          @db.VarChar(100)
+  component          String?          @db.VarChar(100)
+  cost_price         Decimal          @db.Decimal(15, 2)
+  selling_price      Decimal          @db.Decimal(15, 2)
+  applied_margin     Decimal          @db.Decimal(5, 4)
+  policy_min_margin  Decimal          @db.Decimal(5, 4)
+  policy_max_margin  Decimal          @db.Decimal(5, 4)
+  deviation_from_min Decimal?         @db.Decimal(5, 4)
+  deviation_from_max Decimal?         @db.Decimal(5, 4)
+  exception_type     String?          @db.VarChar(50)
+  exception_reason   String?
+  approved_by        String?          @db.VarChar(100)
+  approved_at        DateTime?
+  created_by         String           @db.VarChar(100)
+  created_at         DateTime         @default(now())
+  margin_policies    margin_policies? @relation("PolicyViolations", fields: [policy_id], references: [id], onDelete: Cascade)
+
+  @@index([estimation_id])
+  @@index([policy_id])
+  @@index([violated_at])
+}
+
+model pricing_rules {
+  id                Int      @id @default(autoincrement())
+  category          String   @db.VarChar(255)
+  markup_percentage Decimal  @db.Decimal(5, 2)
+  created_at        DateTime @default(now())
+  updated_at        DateTime @default(now())
+}
+
+model bank_reconciliations {
+  id                     String    @id
+  bank_account           String    @db.VarChar(100)
+  period                 String    @db.VarChar(20)
+  start_date             DateTime  @db.Date
+  end_date               DateTime  @db.Date
+  opening_balance_system Decimal   @default(0) @db.Decimal(15, 2)
+  opening_balance_bank   Decimal   @default(0) @db.Decimal(15, 2)
+  closing_balance_system Decimal   @default(0) @db.Decimal(15, 2)
+  closing_balance_bank   Decimal   @default(0) @db.Decimal(15, 2)
+  system_transactions    Json?
+  bank_transactions      Json?
+  matched_transactions   Json?
+  unmatched_system       Json?
+  unmatched_bank         Json?
+  adjustments            Json?
+  difference             Decimal   @default(0) @db.Decimal(15, 2)
+  status                 String    @default("Draft") @db.VarChar(20)
+  notes                  String?
+  completed_at           DateTime?
+  completed_by           String?   @db.VarChar(100)
+  created_at             DateTime  @default(now())
+  updated_at             DateTime  @default(now())
+
+  @@index([bank_account])
+  @@index([period])
+  @@index([status])
+}
+
+model tax_rates {
+  id          Int      @id @default(autoincrement())
+  tax_name    String   @unique
+  tax_code    String   @unique
+  rate        Decimal  @db.Decimal(5, 2)
+  description String?
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @default(now())
+}
+
+model users {
+  id            String   @id @db.Uuid
+  email         String   @unique
+  password_hash String
+  full_name     String
+  role          String   @db.VarChar(50)
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now())
+  updated_at    DateTime
+}
+
+model payables {
+  id                    String        @id
+  payable_number        String?       @unique
+  vendor_id             String?
+  vendor_name           String
+  invoice_date          DateTime      @db.Date
+  due_date              DateTime      @db.Date
+  total_amount          Decimal       @db.Decimal(15, 2)
+  currency              String        @default("IDR") @db.VarChar(3)
+  status                PayableStatus @default(PENDING)
+  payment_method        String?       @db.VarChar(50)
+  reference_number      String?
+  description           String?
+  payment_date          DateTime?     @db.Date
+  created_by            String?
+  updated_by            String?
+  created_at            DateTime      @default(now())
+  updated_at            DateTime      @updatedAt
+  notes                 String?
+  po_id                 String?
+  subtotal              Decimal       @db.Decimal(15, 2)
+  tax_amount            Decimal       @default(0) @db.Decimal(15, 2)
+  vendor_invoice_number String        @unique
+
+  @@index([vendor_id])
+  @@index([status])
+  @@index([due_date])
+  @@index([invoice_date])
+}
+
+model payable_items {
+  id               String   @id
+  payable_id       String
+  item_description String
+  quantity         Decimal  @db.Decimal(15, 4)
+  unit_price       Decimal  @db.Decimal(15, 2)
+  total_price      Decimal  @db.Decimal(15, 2)
+  created_at       DateTime @default(now())
+
+  @@index([payable_id])
+}
+
+model payable_payments {
+  id               String   @id
+  payable_id       String
+  payment_date     DateTime @db.Date
+  payment_amount   Decimal  @db.Decimal(15, 2)
+  payment_method   String?  @db.VarChar(50)
+  reference_number String?
+  notes            String?
+  created_at       DateTime @default(now())
+
+  @@index([payable_id])
+  @@index([payment_date])
+}
+
+enum AccountType {
+  Asset
+  Liability
+  Equity
+  Revenue
+  Expense
+}
+
+enum DocumentType {
+  QUOTATION
+  SALES_ORDER
+  CONTRACT
+  INVOICE
+  EFAKTUR
+  HANDOVER
+  BAST
+  PAYMENT_PROOF
+  OTHER
+}
+
+enum InvoiceMilestoneStatus {
+  Pending
+  InProgress
+  Completed
+  Billed
+  Cancelled
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum MilestoneType {
+  Progress30
+  Progress70
+  Handover
+  Retention
+  Custom
+}
+
+enum PayableStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
