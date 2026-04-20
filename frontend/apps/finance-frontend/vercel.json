@@ -1,13 +1,14 @@
 {
-  "builds": [
+  "projects": [
     {
-      "src": "frontend/apps/finance-frontend/package.json",
+      "src": "frontend/apps/finance-frontend",
       "use": "@vercel/static-build",
-      "config": { "distDir": "dist" }
+      "config": {
+        "distDir": "dist"
+      }
     }
   ],
   "routes": [
-    { "handle": "filesystem" },
-    { "src": "/.*", "dest": "/index.html" }
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
