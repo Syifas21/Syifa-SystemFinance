@@ -1,14 +1,6 @@
 {
-  "projects": [
-    {
-      "src": "frontend/apps/finance-frontend",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    }
-  ],
-  "routes": [
-    { "src": "/(.*)", "dest": "/index.html" }
-  ]
+"version" : 2,
+"builds": [{"src":"./index.js", "use":"@vercel/node"}]
+"routes": [{"src":"/(.*)","dest": "/"}]
 }
+
